@@ -33,7 +33,7 @@ class LocalRAG:
         self.user_chunks = {}   # user_id -> list of text chunks with metadata
         self.user_embeddings = {}  # user_id -> embeddings (if FAISS not available)
         
-    async def add_document(self, text_content: str, user_id: str, file_path: str) -> bool:
+    async def add_document(self, text_content: str, user_id: str, filename: str, file_path: str = None) -> Dict[str, Any]:
         """Add document to user's RAG system"""
         try:
             print(f"🔧 Adding document to RAG for user: {user_id}")
@@ -44,12 +44,12 @@ class LocalRAG:
                 await self._initialize_user_storage(user_id)
             
             # Chunk the document
-            chunks = self._chunk_text(text_content, file_path)
+            chunks = self._chunk_text(text_content, filename)
             print(f"📄 Created {len(chunks)} chunks from document")
             
             if not chunks:
                 print("❌ No chunks created from document")
-                return False
+                return {"success": False, "chunks_created": 0}
             
             # Generate embeddings
             texts = [chunk["content"] for chunk in chunks]
@@ -70,11 +70,11 @@ class LocalRAG:
             # Save to disk
             await self._save_user_data(user_id)
             
-            return True
+            return {"success": True, "chunks_created": len(chunks)}
             
         except Exception as e:
             print(f"Error adding document to RAG: {e}")
-            return False
+            return {"success": False, "chunks_created": 0}
     
     async def retrieve_relevant_chunks(self, query: str, user_id: str, top_k: int = 5) -> List[Dict]:
         """Retrieve most relevant chunks for query"""

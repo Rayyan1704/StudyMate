@@ -474,12 +474,34 @@ Format as an interactive quiz that helps students learn."""
     ) -> Dict[str, Any]:
         """Process uploaded document"""
         try:
+            import os
+            import uuid
+            from pathlib import Path
+            
+            # Create uploads directory if it doesn't exist
+            uploads_dir = Path("uploads") / user_id
+            uploads_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Generate unique filename to avoid conflicts
+            file_extension = Path(filename).suffix
+            unique_filename = f"{uuid.uuid4().hex}_{filename}"
+            file_path = uploads_dir / unique_filename
+            
+            # Save original file
+            with open(file_path, 'wb') as f:
+                f.write(file_content)
+            
             # Extract text
             text_content = await self.document_processor.extract_text_from_bytes(
                 file_content, filename
             )
             
             if not text_content:
+                # Clean up file if text extraction failed
+                try:
+                    os.unlink(file_path)
+                except:
+                    pass
                 return {
                     "success": False,
                     "message": "Could not extract text from file",
@@ -491,16 +513,31 @@ Format as an interactive quiz that helps students learn."""
             result = await self.rag_engine.add_document(
                 text_content=text_content,
                 filename=filename,
-                user_id=session_user_id
+                user_id=session_user_id,
+                file_path=str(file_path)
+            )
+            
+            # Store document info in database
+            doc_id = str(uuid.uuid4())
+            await self.db_manager.save_document(
+                doc_id=doc_id,
+                user_id=user_id,
+                filename=filename,
+                file_path=str(file_path),
+                file_size=len(file_content),
+                text_content=text_content,
+                chunks_created=result.get("chunks_created", 0)
             )
             
             return {
                 "success": result["success"],
                 "message": f"Successfully processed {filename}",
+                "id": doc_id,
                 "file_info": {
                     "filename": filename,
                     "size": len(file_content),
-                    "text_length": len(text_content)
+                    "text_length": len(text_content),
+                    "file_path": str(file_path)
                 },
                 "chunks_created": result.get("chunks_created", 0)
             }

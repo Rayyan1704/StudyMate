@@ -610,3 +610,82 @@ class DatabaseManager:
         except Exception as e:
             print(f"❌ Error optimizing database: {e}")
             return False
+
+    async def save_document(self, doc_id: str, user_id: str, filename: str, file_path: str, 
+                           file_size: int, text_content: str, chunks_created: int) -> bool:
+        """Save document information to database"""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            # Get file type from filename
+            file_type = filename.split('.')[-1].lower() if '.' in filename else 'unknown'
+            
+            cursor.execute('''
+                INSERT INTO documents (
+                    id, user_id, filename, file_path, file_type, file_size,
+                    processed, chunk_count, processing_status, metadata
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                doc_id, user_id, filename, file_path, file_type, file_size,
+                1, chunks_created, 'completed', 
+                json.dumps({"text_length": len(text_content)})
+            ))
+            
+            conn.commit()
+            conn.close()
+            
+            print(f"📄 Saved document: {filename} (ID: {doc_id})")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error saving document: {e}")
+            return False
+    
+    async def get_document_content(self, doc_id: str) -> Dict[str, Any]:
+        """Get document content by ID"""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute('SELECT * FROM documents WHERE id = ?', (doc_id,))
+            doc_row = cursor.fetchone()
+            
+            if not doc_row:
+                return {"error": "Document not found"}
+            
+            conn.close()
+            
+            # Read file content if file exists
+            file_path = doc_row["file_path"]
+            if os.path.exists(file_path):
+                try:
+                    # For text files, read directly
+                    if doc_row["file_type"] == 'txt':
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            content = f.read()
+                    else:
+                        # For other files, extract text using document processor
+                        from core.document_processor import DocumentProcessor
+                        processor = DocumentProcessor()
+                        content = await processor.extract_text(file_path)
+                    
+                    return {
+                        "id": doc_id,
+                        "filename": doc_row["filename"],
+                        "content": content,
+                        "metadata": {
+                            "file_type": doc_row["file_type"],
+                            "file_size": doc_row["file_size"],
+                            "upload_date": doc_row["upload_date"],
+                            "chunk_count": doc_row["chunk_count"]
+                        }
+                    }
+                except Exception as e:
+                    return {"error": f"Failed to read file content: {str(e)}"}
+            else:
+                return {"error": "Original file not found on disk"}
+                
+        except Exception as e:
+            print(f"❌ Error getting document content: {e}")
+            return {"error": str(e)}

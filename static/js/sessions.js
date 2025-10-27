@@ -265,6 +265,14 @@ async function createFirstChat() {
 function switchToSession(sessionId) {
     console.log(`🔄 Switching to session: ${sessionId}`);
     
+    // Stop any ongoing voice activities when switching sessions
+    if (typeof stopSpeech === 'function') {
+        stopSpeech();
+    }
+    if (typeof stopVoiceInput === 'function') {
+        stopVoiceInput();
+    }
+    
     // Show chat interface when switching to a session
     showChatInterface();
     

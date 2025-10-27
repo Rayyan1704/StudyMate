@@ -82,7 +82,7 @@ ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
 
 # Application Settings
 DEBUG=False
-HOST=0.0.0.0
+HOST=127.0.0.1
 PORT=8000
 
 # Database
@@ -115,8 +115,8 @@ def create_directories():
 def launch_studymate():
     """Launch the StudyMate application"""
     print("🚀 Starting StudyMate AI...")
-    print("📱 Web Interface: http://localhost:8000")
-    print("📚 API Documentation: http://localhost:8000/docs")
+    print("📱 Web Interface: http://127.0.0.1:8000")
+    print("📚 API Documentation: http://127.0.0.1:8000/docs")
     print("🛑 Press Ctrl+C to stop")
     print("-" * 50)
     
@@ -127,7 +127,7 @@ def launch_studymate():
         
         uvicorn.run(
             app,
-            host="0.0.0.0",
+            host="127.0.0.1",
             port=8000,
             reload=False,
             log_level="info"

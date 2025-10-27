@@ -21,14 +21,14 @@ def main():
     # Start server
     try:
         import uvicorn
-        print("🚀 Server starting on http://localhost:8080")
+        print("🚀 Server starting on http://localhost:8888")
         print("🎓 StudyMate AI Dark Edition Ready!")
         print("🛑 Press Ctrl+C to stop")
         
         uvicorn.run(
             "main:app",
             host="127.0.0.1",
-            port=8080,
+            port=8888,
             reload=False,
             log_level="info"
         )

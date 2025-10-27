@@ -278,16 +278,16 @@ async def get_document_content(doc_id: str, user_id: str = "web_user"):
         if not ai_engine:
             raise HTTPException(status_code=503, detail="AI engine not ready")
         
-        # For now, return a placeholder since we don't store original content
-        # In a full implementation, you'd retrieve the original document content
-        return {
-            "content": "Document content viewing is not fully implemented yet. The document has been processed and is available for AI queries.",
-            "metadata": {
-                "doc_id": doc_id,
-                "message": "Content extracted and processed for AI analysis"
-            }
-        }
+        # Get document content from database
+        content_data = await ai_engine.db_manager.get_document_content(doc_id)
         
+        if "error" in content_data:
+            raise HTTPException(status_code=404, detail=content_data["error"])
+        
+        return content_data
+        
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -709,7 +709,7 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
         app, 
-        host="0.0.0.0", 
+        host="127.0.0.1", 
         port=8000, 
         reload=True,
         log_level="info"

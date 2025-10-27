@@ -650,6 +650,35 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// Stop voice when page is about to unload or becomes hidden
+window.addEventListener('beforeunload', () => {
+    console.log('🔊 Page unloading - stopping all voice activities');
+    stopSpeech();
+    stopVoiceInput();
+});
+
+window.addEventListener('pagehide', () => {
+    console.log('🔊 Page hidden - stopping all voice activities');
+    stopSpeech();
+    stopVoiceInput();
+});
+
+// Stop voice when page visibility changes (tab switching)
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        console.log('🔊 Page hidden - stopping all voice activities');
+        stopSpeech();
+        stopVoiceInput();
+    }
+});
+
+// Stop voice when user navigates away
+window.addEventListener('popstate', () => {
+    console.log('🔊 Navigation detected - stopping all voice activities');
+    stopSpeech();
+    stopVoiceInput();
+});
+
 // Export voice functions for global access
 window.VoiceInterface = {
     toggleVoiceInput,
