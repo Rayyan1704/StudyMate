@@ -1,0 +1,1 @@
+# StudyMate AI data models

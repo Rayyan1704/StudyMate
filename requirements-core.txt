@@ -1,0 +1,24 @@
+# Core StudyMate AI Requirements (Minimal Installation)
+# Install with: pip install -r requirements-core.txt
+
+# Web Framework
+fastapi>=0.104.0
+uvicorn>=0.24.0
+python-multipart>=0.0.6
+pydantic>=2.5.0
+
+# AI & ML (Essential)
+google-generativeai>=0.3.0
+torch>=2.1.0
+transformers>=4.35.0
+sentence-transformers>=2.2.0
+numpy>=1.21.0
+
+# File Processing
+PyMuPDF>=1.23.0
+python-pptx>=0.6.21
+python-docx>=1.0.0
+
+# Utilities
+python-dotenv>=1.0.0
+requests>=2.31.0
