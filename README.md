@@ -19,7 +19,7 @@ A modern AI-powered study assistant with dark aesthetic design that helps studen
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/Rayyan1704/StudyMate
 cd StudyMate
 
 # Install dependencies
