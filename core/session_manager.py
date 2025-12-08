@@ -38,12 +38,14 @@ class SessionManager:
         """Create a new chat session"""
         
         try:
+            # Determine current session count for limit checks and default naming
+            session_count = await self._get_user_session_count(user_id)
+            
             # Generate unique session ID
             session_id = str(uuid.uuid4())
             
             # Auto-generate title if not provided
             if not title:
-                session_count = await self._get_user_session_count(user_id)
                 title = f"Chat Session {session_count + 1}"
             
             # Check session limit

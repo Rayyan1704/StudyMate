@@ -8,6 +8,10 @@ import asyncio
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 import google.generativeai as genai
+try:
+    from google.api_core import exceptions as google_exceptions
+except Exception:
+    google_exceptions = None
 from sentence_transformers import SentenceTransformer
 import numpy as np
 import json
@@ -198,14 +202,21 @@ class AIEngine:
             
             # Generate response with Gemini if available
             if self.gemini_available:
-                prompt = self._create_rag_prompt(query, context, mode)
-                response = self.gemini_model.generate_content(prompt)
-                
-                # Post-process response to improve structure
-                if mode == "notes":
-                    return self._format_notes_response(response.text)
-                else:
-                    return response.text
+                try:
+                    prompt = self._create_rag_prompt(query, context, mode)
+                    response = self.gemini_model.generate_content(prompt)
+                    
+                    # Post-process response to improve structure
+                    if mode == "notes":
+                        return self._format_notes_response(response.text)
+                    else:
+                        return response.text
+                except Exception as e:
+                    # Graceful degradation on quota or model errors
+                    if self._is_quota_error(e):
+                        self.gemini_available = False
+                        return self._format_rag_fallback(query, relevant_chunks)
+                    return f"Error processing with documents: {str(e)}"
             else:
                 # Fallback: structured response without AI
                 return self._format_rag_fallback(query, relevant_chunks)
@@ -272,6 +283,11 @@ For now, you can still upload documents and I'll help you search through them.""
             return response.text
             
         except Exception as e:
+            # Detect quota/rate limits and fall back gracefully
+            if self._is_quota_error(e):
+                self.gemini_available = False
+                return ("AI temporarily paused (Gemini quota). "
+                        "Add a valid GEMINI_API_KEY with quota, then reload to restore full answers.")
             return f"AI processing error: {str(e)}"
     
     def _create_rag_prompt(self, query: str, context: str, mode: str) -> str:
@@ -397,6 +413,14 @@ If the context doesn't fully answer the question, mention what additional inform
             prompt += "- Vary difficulty levels from basic to advanced\n"
         
         return prompt
+
+    def _is_quota_error(self, err: Exception) -> bool:
+        """Detect Gemini quota/rate limit errors to degrade gracefully."""
+        if google_exceptions:
+            if isinstance(err, google_exceptions.ResourceExhausted):
+                return True
+        message = str(err).lower()
+        return "quota" in message or "rate limit" in message or "429" in message
     
     def _create_gemini_prompt(
         self, 

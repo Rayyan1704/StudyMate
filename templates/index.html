@@ -70,9 +70,6 @@
                         <i class="fas fa-history"></i>
                         Chats
                     </h3>
-                    <button class="btn-icon" onclick="showSessionNameModal()" title="Create Named Session" aria-label="Create new named session">
-                        <i class="fas fa-plus"></i>
-                    </button>
                 </div>
                 <div class="sessions-list" id="sessionsList">
                     <!-- Sessions will be loaded here -->
@@ -81,6 +78,11 @@
                         <p>No chat sessions yet</p>
                         <small>Start a new conversation to begin</small>
                     </div>
+                </div>
+                <div class="sessions-actions">
+                    <button class="btn btn-primary" style="width:100%;" onclick="showSessionNameModal()" aria-label="Create new chat">
+                        New Chat
+                    </button>
                 </div>
             </div>
             
