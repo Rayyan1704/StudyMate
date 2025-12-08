@@ -402,17 +402,28 @@ async def get_sessions(user_id: str = "web_user"):
 async def create_session(request: dict):
     """Create new chat session"""
     try:
+        user_id = request.get("user_id", "web_user")
+        title = request.get("title", "New Chat")
+        mode = request.get("mode", "chat")
+        
+        if session_manager:
+            session = await session_manager.create_session(
+                user_id=user_id,
+                title=title,
+                mode=mode
+            )
+            return session
+        
+        # Fallback lightweight session response if manager unavailable
         session_id = str(uuid.uuid4())
-        session = {
+        return {
             "id": session_id,
-            "title": request.get("title", "New Chat"),
-            "mode": request.get("mode", "chat"),
+            "title": title,
+            "mode": mode,
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat(),
             "last_message": ""
         }
-        
-        return session
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -452,8 +463,16 @@ async def save_session_message(session_id: str, request: dict):
 async def update_session(session_id: str, request: dict):
     """Update session details"""
     try:
-        # For now, just return success
-        return {"success": True}
+        if session_manager:
+            success = await session_manager.update_session(
+                session_id=session_id,
+                title=request.get("title"),
+                archived=request.get("archived"),
+                metadata=request.get("metadata")
+            )
+            return {"success": success}
+        
+        return {"success": False, "error": "Session manager not available"}
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -462,8 +481,11 @@ async def update_session(session_id: str, request: dict):
 async def delete_session(session_id: str):
     """Delete a session"""
     try:
-        # For now, just return success
-        return {"success": True}
+        if session_manager:
+            success = await session_manager.delete_session(session_id)
+            return {"success": success}
+        
+        return {"success": False, "error": "Session manager not available"}
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
