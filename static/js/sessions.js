@@ -148,10 +148,10 @@ function showExistingSessionsWelcome() {
                 <p>Select a chat from the sidebar to continue your conversation, or create a new one to start fresh.</p>
                 
                 <div class="welcome-actions">
-                    <button class="btn btn-primary create-new-chat" onclick="showSessionNameModal()">
-                        <i class="fas fa-plus"></i>
-                        Create New Chat
-                    </button>
+                <button class="btn btn-primary create-new-chat" onclick="showSessionNameModal()">
+                    <i class="fas fa-plus"></i>
+                    Create New Session
+                </button>
                 </div>
                 
                 <div class="existing-sessions-hint">
@@ -404,7 +404,7 @@ function renderSessions() {
                 <i class="fas fa-comments"></i>
                 <p>No chat sessions yet</p>
                 <button class="btn btn-primary" onclick="showSessionNameModal()">
-                    <i class="fas fa-plus"></i> Create Named Session
+                    <i class="fas fa-plus"></i> Create New Session
                 </button>
             </div>
         `;
