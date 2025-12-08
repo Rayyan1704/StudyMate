@@ -51,10 +51,8 @@ python -m venv .venv
 .\.venv\Scripts\activate  # Windows
 source .venv/bin/activate # macOS/Linux
 
-# Install required deps
+# Install dependencies (single file)
 pip install -r requirements.txt
-# Optional extras (voice/FAISS)
-pip install -r requirements-optional.txt
 ```
 
 Copy the env template and add your keys:
@@ -77,18 +75,13 @@ DB_BACKUP_ENABLED=true
 
 ## Running
 ```bash
-# Recommended launcher (prints URL, handles reload in dev)
-python quick_start.py
+# Development (auto-reload)
+uvicorn main:app --reload --host 0.0.0.0 --port 8080
 
-# Or run the app directly
+# Production-ish
 python main.py
-
-# Shell helpers
-./start_studymate.sh      # macOS/Linux
-start_studymate.bat       # Windows
-python start_studymate.py
 ```
-Open http://localhost:8080 to use the UI. API docs are at http://localhost:8080/api/docs.
+Open http://localhost:8080 to use the UI. API docs: http://localhost:8080/api/docs.
 
 ## Usage
 1. Create a session from the sidebar (Ctrl/Cmd+N).
