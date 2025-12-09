@@ -225,15 +225,30 @@ async def upload_document(
         if not ai_engine:
             raise HTTPException(status_code=503, detail="AI engine not ready")
         
-        # Validate file
-        max_size = int(os.getenv("MAX_FILE_SIZE_MB", 50)) * 1024 * 1024
-        content = await file.read()
+        # Validate file size with streaming (don't load all at once)
+        max_size = int(os.getenv("MAX_FILE_SIZE_MB", 25)) * 1024 * 1024
         
-        if len(content) > max_size:
-            raise HTTPException(
-                status_code=413, 
-                detail=f"File too large. Max size: {max_size // (1024*1024)}MB"
-            )
+        # Read file in chunks to check size without loading entire file
+        content_chunks = []
+        total_size = 0
+        chunk_size = 1024 * 1024  # 1MB chunks
+        
+        while True:
+            chunk = await file.read(chunk_size)
+            if not chunk:
+                break
+            
+            total_size += len(chunk)
+            if total_size > max_size:
+                raise HTTPException(
+                    status_code=413, 
+                    detail=f"File too large. Max size: {max_size // (1024*1024)}MB"
+                )
+            
+            content_chunks.append(chunk)
+        
+        # Combine chunks into single content
+        content = b"".join(content_chunks)
         
         # Save and process file
         result = await ai_engine.process_document(
@@ -243,10 +258,14 @@ async def upload_document(
             session_id=session_id
         )
         
+        # Clear content from memory immediately after processing
+        del content
+        del content_chunks
+        
         return {
             "id": str(uuid.uuid4()),
             "filename": file.filename,
-            "file_size": len(content),
+            "file_size": total_size,
             "upload_date": datetime.now().isoformat(),
             "status": "processed" if result["success"] else "error",
             "chunk_count": result.get("chunks_created", 0),
