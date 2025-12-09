@@ -39,15 +39,15 @@ class DocumentProcessor:
         """Extract text from PDF using PyMuPDF"""
         try:
             doc = fitz.open(file_path)
-            text = ""
+            pages = []
             
             for page_num in range(doc.page_count):
                 page = doc[page_num]
-                text += page.get_text()
-                text += "\n\n"  # Add page separator
+                pages.append(page.get_text())
+                pages.append("\n\n")  # Add page separator
             
             doc.close()
-            return text.strip()
+            return "".join(pages).strip()
             
         except Exception as e:
             print(f"Error extracting PDF: {e}")
@@ -58,19 +58,21 @@ class DocumentProcessor:
         try:
             # Method 1: Using python-docx
             doc = Document(file_path)
-            text = ""
+            parts = []
             
             for paragraph in doc.paragraphs:
-                text += paragraph.text + "\n"
+                parts.append(paragraph.text)
+                parts.append("\n")
             
             # Extract text from tables
             for table in doc.tables:
                 for row in table.rows:
                     for cell in row.cells:
-                        text += cell.text + " "
-                    text += "\n"
+                        parts.append(cell.text)
+                        parts.append(" ")
+                    parts.append("\n")
             
-            return text.strip()
+            return "".join(parts).strip()
             
         except Exception as e:
             try:
@@ -79,31 +81,31 @@ class DocumentProcessor:
                 return text.strip()
             except Exception as e2:
                 print(f"Error extracting DOCX: {e}, {e2}")
-                return ""
-    
     async def _extract_from_pptx(self, file_path: Path) -> str:
         """Extract text from PowerPoint presentations"""
         try:
             prs = Presentation(file_path)
-            text = ""
+            parts = []
             slide_count = 0
             
             for slide_num, slide in enumerate(prs.slides, 1):
                 slide_count += 1
-                slide_text = f"Slide {slide_num}:\n"
-                slide_content = ""
+                parts.append(f"Slide {slide_num}:\n")
                 
                 for shape in slide.shapes:
                     if hasattr(shape, "text") and shape.text.strip():
-                        slide_content += shape.text.strip() + "\n"
+                        parts.append(shape.text.strip())
+                        parts.append("\n")
                 
-                if slide_content:
-                    text += slide_text + slide_content + "\n"
+                parts.append("\n")
             
+            text = "".join(parts).strip()
             print(f"📊 PowerPoint processed: {slide_count} slides, {len(text)} characters extracted")
-            return text.strip()
+            return text
             
         except Exception as e:
+            print(f"Error extracting PPTX: {e}")
+            return ""ion as e:
             print(f"Error extracting PPTX: {e}")
             return ""
     

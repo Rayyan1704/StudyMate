@@ -227,7 +227,7 @@ class RAGEngine:
         # Split into sentences first for better chunk boundaries
         sentences = self._split_into_sentences(text)
         
-        current_chunk = ""
+        current_chunk_parts = []
         current_length = 0
         chunk_index = 0
         
@@ -235,12 +235,13 @@ class RAGEngine:
             sentence_length = len(sentence.split())
             
             # Check if adding this sentence would exceed chunk size
-            if current_length + sentence_length > self.chunk_size and current_chunk:
+            if current_length + sentence_length > self.chunk_size and current_chunk_parts:
                 # Create chunk
+                current_chunk = " ".join(current_chunk_parts).strip()
                 chunk_id = hashlib.md5(f"{filename}_{chunk_index}".encode()).hexdigest()
                 chunks.append({
                     "id": chunk_id,
-                    "content": current_chunk.strip(),
+                    "content": current_chunk,
                     "source_file": filename,
                     "chunk_index": chunk_index,
                     "word_count": current_length,
@@ -249,20 +250,21 @@ class RAGEngine:
                 
                 # Start new chunk with overlap
                 overlap_text = self._get_overlap_text(current_chunk, self.chunk_overlap)
-                current_chunk = overlap_text + " " + sentence
-                current_length = len(current_chunk.split())
+                current_chunk_parts = [overlap_text, sentence] if overlap_text else [sentence]
+                current_length = len(" ".join(current_chunk_parts).split())
                 chunk_index += 1
             else:
                 # Add sentence to current chunk
-                current_chunk += " " + sentence if current_chunk else sentence
+                current_chunk_parts.append(sentence)
                 current_length += sentence_length
         
         # Add final chunk if there's content
-        if current_chunk.strip():
+        if current_chunk_parts:
+            current_chunk = " ".join(current_chunk_parts).strip()
             chunk_id = hashlib.md5(f"{filename}_{chunk_index}".encode()).hexdigest()
             chunks.append({
                 "id": chunk_id,
-                "content": current_chunk.strip(),
+                "content": current_chunk,
                 "source_file": filename,
                 "chunk_index": chunk_index,
                 "word_count": current_length,
