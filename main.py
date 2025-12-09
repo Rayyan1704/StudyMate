@@ -15,6 +15,7 @@ from starlette.requests import Request
 import os
 import json
 import asyncio
+import gc
 from pathlib import Path
 from typing import List, Dict, Optional
 from datetime import datetime, timedelta
@@ -163,14 +164,17 @@ async def chat_endpoint(request: dict):
                 response_time=response.metadata.get("response_time", 0)
             )
         
-        # Return response as dict for JSON serialization
+        # Return response as dict for JSON serialization (exclude large metadata)
         return {
             "content": response.content,
             "source": response.source,
             "session_id": response.session_id,
             "user_id": response.user_id,
             "mode": response.mode,
-            "metadata": response.metadata
+            "metadata": {
+                "response_time": response.metadata.get("response_time", 0),
+                "source": response.metadata.get("source", "ai")
+            }
         }
         
     except Exception as e:
@@ -180,33 +184,55 @@ async def chat_endpoint(request: dict):
 @app.websocket("/ws/chat/{user_id}")
 async def websocket_chat(websocket: WebSocket, user_id: str):
     """WebSocket for real-time chat features"""
-    await websocket.accept()
-    active_connections[user_id] = websocket
-    
     try:
+        await websocket.accept()
+        active_connections[user_id] = websocket
+        
         while True:
-            # Receive message from client
-            data = await websocket.receive_text()
-            message_data = json.loads(data)
-            
-            # Process through AI engine
-            if ai_engine:
-                response = await ai_engine.process_query(
-                    query=message_data["message"],
-                    user_id=user_id,
-                    session_id=message_data.get("session_id", "default"),
-                    mode=message_data.get("mode", "chat")
-                )
+            try:
+                # Receive message from client
+                data = await websocket.receive_text()
+                message_data = json.loads(data)
                 
-                # Send response back
+                # Process through AI engine
+                if ai_engine:
+                    response = await ai_engine.process_query(
+                        query=message_data.get("message", ""),
+                        user_id=user_id,
+                        session_id=message_data.get("session_id", "default"),
+                        mode=message_data.get("mode", "chat")
+                    )
+                    
+                    # Send response back with minimal metadata to save bandwidth
+                    await websocket.send_text(json.dumps({
+                        "type": "response",
+                        "content": response.content,
+                        "source": response.source,
+                        "response_time": response.metadata.get("response_time", 0)
+                    }))
+                else:
+                    await websocket.send_text(json.dumps({
+                        "type": "error",
+                        "content": "AI engine not ready"
+                    }))
+            except json.JSONDecodeError:
                 await websocket.send_text(json.dumps({
-                    "type": "response",
-                    "content": response.content,
-                    "source": response.source,
-                    "metadata": response.metadata
+                    "type": "error",
+                    "content": "Invalid JSON format"
+                }))
+            except Exception as e:
+                print(f"❌ WebSocket message error: {e}")
+                await websocket.send_text(json.dumps({
+                    "type": "error",
+                    "content": "Failed to process message"
                 }))
                 
     except WebSocketDisconnect:
+        if user_id in active_connections:
+            del active_connections[user_id]
+        print(f"👋 WebSocket disconnected: {user_id}")
+    except Exception as e:
+        print(f"❌ WebSocket error: {e}")
         if user_id in active_connections:
             del active_connections[user_id]
 
@@ -221,46 +247,59 @@ async def upload_document(
     session_id: str = Form("default")
 ):
     """Upload and process documents for RAG"""
+    import gc
+    
     try:
         if not ai_engine:
             raise HTTPException(status_code=503, detail="AI engine not ready")
         
         # Validate file size with streaming (don't load all at once)
-        max_size = int(os.getenv("MAX_FILE_SIZE_MB", 25)) * 1024 * 1024
+        max_size = int(os.getenv("MAX_FILE_SIZE_MB", 10)) * 1024 * 1024
         
         # Read file in chunks to check size without loading entire file
         content_chunks = []
         total_size = 0
         chunk_size = 1024 * 1024  # 1MB chunks
         
-        while True:
-            chunk = await file.read(chunk_size)
-            if not chunk:
-                break
-            
-            total_size += len(chunk)
-            if total_size > max_size:
-                raise HTTPException(
-                    status_code=413, 
-                    detail=f"File too large. Max size: {max_size // (1024*1024)}MB"
-                )
-            
-            content_chunks.append(chunk)
+        try:
+            while True:
+                chunk = await file.read(chunk_size)
+                if not chunk:
+                    break
+                
+                total_size += len(chunk)
+                if total_size > max_size:
+                    raise HTTPException(
+                        status_code=413, 
+                        detail=f"File too large. Max size: {max_size // (1024*1024)}MB"
+                    )
+                
+                content_chunks.append(chunk)
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"❌ Error reading file: {e}")
+            raise HTTPException(status_code=400, detail="Failed to read file")
         
         # Combine chunks into single content
         content = b"".join(content_chunks)
         
-        # Save and process file
-        result = await ai_engine.process_document(
-            file_content=content,
-            filename=file.filename,
-            user_id=user_id,
-            session_id=session_id
-        )
-        
-        # Clear content from memory immediately after processing
-        del content
-        del content_chunks
+        try:
+            # Save and process file
+            result = await ai_engine.process_document(
+                file_content=content,
+                filename=file.filename,
+                user_id=user_id,
+                session_id=session_id
+            )
+        except Exception as e:
+            print(f"❌ Document processing error: {e}")
+            raise HTTPException(status_code=500, detail="Failed to process document")
+        finally:
+            # Clear content from memory immediately after processing
+            del content
+            del content_chunks
+            gc.collect()
         
         return {
             "id": str(uuid.uuid4()),
@@ -272,9 +311,11 @@ async def upload_document(
             "message": result["message"]
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"❌ Upload error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.get("/api/documents")
 async def get_documents(user_id: str = "web_user"):

@@ -1,9 +1,11 @@
 """
 Document Processor - Extract text from various file formats
+Optimized for memory efficiency with large files
 """
 
 import os
 from pathlib import Path
+import gc
 import fitz  # PyMuPDF
 from pptx import Presentation
 from docx import Document
@@ -34,6 +36,9 @@ class DocumentProcessor:
         except Exception as e:
             print(f"Error extracting text from {file_path}: {e}")
             return ""
+        finally:
+            # Force garbage collection after processing
+            gc.collect()
     
     async def _extract_from_pdf(self, file_path: Path) -> str:
         """Extract text from PDF using PyMuPDF"""

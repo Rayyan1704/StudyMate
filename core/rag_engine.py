@@ -71,24 +71,42 @@ class RAGEngine:
             
             print(f"📝 Created {len(chunks)} chunks from {filename}")
             
-            # Generate embeddings
+            # Generate embeddings with batch processing
             chunk_texts = [chunk["content"] for chunk in chunks]
-            embeddings = self.embedding_model.encode(chunk_texts, show_progress_bar=False)
+            
+            # Process embeddings in smaller batches to manage memory
+            batch_size = 32  # Process 32 chunks at a time
+            embeddings_list = []
+            
+            for i in range(0, len(chunk_texts), batch_size):
+                batch = chunk_texts[i:i+batch_size]
+                batch_embeddings = self.embedding_model.encode(batch, show_progress_bar=False)
+                embeddings_list.append(batch_embeddings)
+            
+            # Combine batches
+            embeddings = np.vstack(embeddings_list) if embeddings_list else np.array([])
             
             # Store in FAISS or fallback storage
             if self.faiss_available and self.user_indices[user_id] is not None:
                 # Add to FAISS index
-                self.user_indices[user_id].add(embeddings.astype('float32'))
-                print(f"✅ Added {len(embeddings)} embeddings to FAISS index")
+                if len(embeddings) > 0:
+                    self.user_indices[user_id].add(embeddings.astype('float32'))
+                    print(f"✅ Added {len(embeddings)} embeddings to FAISS index")
             else:
                 # Fallback to simple storage
                 if user_id not in self.user_embeddings:
                     self.user_embeddings[user_id] = []
-                self.user_embeddings[user_id].extend(embeddings.tolist())
-                print(f"✅ Added {len(embeddings)} embeddings to simple storage")
+                if len(embeddings) > 0:
+                    self.user_embeddings[user_id].extend(embeddings.tolist())
+                    print(f"✅ Added {len(embeddings)} embeddings to simple storage")
             
             # Store chunk metadata
             self.user_chunks[user_id].extend(chunks)
+            
+            # Clean up large arrays from memory
+            del embeddings
+            del embeddings_list
+            del chunk_texts
             
             # Update document registry
             doc_info = {
